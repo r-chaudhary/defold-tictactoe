@@ -1,0 +1,76 @@
+-- Nodes
+local single_player_btn_node
+local multi_player_btn_node
+local single_player_box
+local multi_player_box 
+local quit_btn_node
+
+-- Vars
+local touch = hash("touch")
+local proxy_controller = msg.url("main", hash("/proxy"), "proxy_controller")
+
+---------------------------------- FUNCtions ----------------------------------
+local function start_single_player()
+	msg.post(proxy_controller, "load_single_player")
+end
+
+
+local function start_multi_player()
+	msg.post(proxy_controller, "load_multi_player")
+end
+
+
+local function disable_gui()
+	msg.post(".", "release_input_focus")
+end
+
+
+local function enable_gui()
+	msg.post(".", "acquire_input_focus")
+end
+
+
+function init(self)
+	single_player_btn_node = gui.get_node("single_player_btn")
+	multi_player_btn_node = gui.get_node("multi_player_btn")
+	single_player_box = gui.get_node("single_player_box")
+	multi_player_box = gui.get_node("multi_player_box")
+	quit_btn_node = gui.get_node("quit_btn")
+	enable_gui()
+end
+
+
+function final(self)
+	msg.post(".", "release_input_focus")
+end
+
+
+function on_input(self, action_id, action)
+	if action_id == touch and gui.pick_node(single_player_btn_node, action.x, action.y) and action.pressed then
+		gui.set_enabled(single_player_btn_node, false)
+		disable_gui()
+		start_single_player()
+	end
+	if action_id == nil then
+		if gui.pick_node(single_player_box, action.x, action.y) then
+			gui.set_color(single_player_btn_node, vmath.vector4(0.9, 0.6, 0.3, 1))
+			else
+				gui.set_color(single_player_btn_node, vmath.vector4(1, 1, 1, 1))
+		end
+		if gui.pick_node(multi_player_box, action.x, action.y) then
+			gui.set_color(multi_player_btn_node, vmath.vector4(0.9, 0.6, 0.3, 1))
+		else
+			gui.set_color(multi_player_btn_node, vmath.vector4(1, 1, 1, 1))
+		end
+	end
+	
+	if action_id == touch and gui.pick_node(multi_player_btn_node, action.x, action.y) and action.pressed then
+		gui.set_enabled(multi_player_btn_node, false)
+		disable_gui()
+		start_multi_player()
+	end
+	
+	if action_id == touch and gui.pick_node(quit_btn_node, action.x, action.y) and action.pressed then
+		msg.post("@system:", "exit", {code = 0})
+	end
+end

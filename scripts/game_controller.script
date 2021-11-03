@@ -1,0 +1,157 @@
+
+local game_mode = 0
+local board = {}
+local player = {}
+local winning_comb = {{1,2,3},{4,5,6},{7,8,9},{1,4,7},{2,5,8},{3,6,9},{1,5,9},{3,5,7}}
+local active_player
+local next_mark = '' 
+local game_completed = false
+local game_script = {}
+game_script[1] = msg.url("single_player", hash("/game/gui"), "game")
+game_script[2] = msg.url("multi_player", hash("/game/gui"), "game")
+
+---------------------------------- FUNCTIONS ----------------------------
+
+
+
+-------------------- GAME MODE -------------------------
+
+local function reset()
+	board = {}
+	for i = 1, 9 do
+		board[i] = ''
+	end
+	player = {}
+	active_player = ''
+	next_mark = ''
+end
+
+local function set_single_player_mode()
+	reset()
+	game_mode = 1
+	player[1] = 'human'
+	player[2] = 'computer'
+	active_player = player[1]
+	next_mark = 'X'
+	msg.post(game_script[game_mode], "next_mark", { mark = next_mark})
+end
+
+local function set_multi_player_mode()
+	reset()
+	game_mode = 2
+	player[1] = 'human1'
+	player[2] = 'human2'
+	active_player = player[1]
+	next_mark = 'X'
+	msg.post(game_script[game_mode], "next_mark", { mark = next_mark})
+end
+
+local function get_mode()
+	print("MODE -> "..game_mode)
+end
+
+
+----------------------------- GAME PLAY ---------------------------
+local function place_mark(i)
+	board[i] = active_player
+end
+
+local function switch_player()
+	if active_player == player[1] then
+		active_player = player[2]
+		next_mark = 'O'
+		msg.post(".", "acquire_input_focus")
+	elseif active_player == player[2] then
+		active_player = player[1]
+		next_mark = 'X'
+		msg.post(".", "acquire_input_focus")
+	end
+	msg.post(game_script[game_mode], "next_mark", { mark = next_mark})
+end
+
+local function check_win()
+	for _, comb in ipairs(winning_comb) do
+		tile_1 = board[comb[1]]
+		tile_2 = board[comb[2]]
+		tile_3 = board[comb[3]]
+		if (tile_1 == tile_2) and (tile_2 == tile_3) and (tile_1 == active_player) then
+			game_completed = true
+			if game_mode == 1 then
+				if player[2] == active_player then 
+					_msg = player[2] .. " Wins"
+				else
+					_msg = 'You Win'
+				end
+			elseif game_mode == 2 then
+				
+				if player[1] == active_player then 
+					_msg = "X Wins" 
+				else
+					_msg = "O Wins"
+				end
+			end
+			msg.post(game_script[game_mode], "game_complete", { message = _msg})
+		end	
+	end
+end
+
+
+local function check_draw()
+	filled_tile = 0
+	for i = 1, 9 do
+		if board[i] ~= "" then 
+			filled_tile = filled_tile + 1 
+		end 
+	end
+	print("FILLED TILE : "..filled_tile)
+	if filled_tile == 9 and game_completed == false then 
+		msg.post(game_script[game_mode], "game_complete", { message = "Game Draw"}) 
+	end
+end
+
+local function place_action()
+	print("ACTION PROCESS")
+	check_win()
+	check_draw()
+	switch_player()
+end
+
+local function quit_game()
+	msg.post("main:/proxy#proxy_controller", "quit_game", {mode = game_mode})
+end
+
+-----------------------------------------------------------------
+-- Computer play
+local function choose_tile()
+	idx = {}
+	for x = 1,9 do if board[x] == '' then table.insert(idx, x) end end
+	return idx[math.random(#idx)]
+end
+
+local function play_computer()
+	idx = choose_tile()
+	msg.post(game_script[game_mode], "computer_place_mark", {idx = idx})
+	place_mark(idx)
+	place_action()
+end
+
+
+-------------------------------------------------------------------
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("set_single_player_mode") then set_single_player_mode()
+	elseif message_id == hash("set_multi_player_mode") then set_multi_player_mode()
+	elseif message_id == hash("get_mode") then get_mode()
+	elseif message_id == hash("quit_game") then quit_game()
+	elseif  message_id == hash("replay") then
+		if game_mode == 1 then msg.post("main:/proxy#proxy_controller", "reload_single_player") 
+		elseif game_mode == 2 then msg.post("main:/proxy#proxy_controller", "reload_multi_player")  
+		end
+	elseif message_id == hash("place_mark") then
+		place_mark(message.i)
+		place_action()
+		if game_mode == 1 then
+			play_computer()
+		end
+	end
+end

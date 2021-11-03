@@ -1,0 +1,134 @@
+------------------------ VARIABLES -----------------------------
+-- Grid
+local grid_length = 9
+local grid = {}
+
+-- Utility
+local next_mark
+local touch = hash("touch")
+
+-- Nodes
+local grid_node
+local turn_txt_node
+local result_box_node
+local winner_txt_node
+local replay_btn_node
+local quit_btn_node
+
+-- Controller
+local game_controller = msg.url("main", hash("/game"), "game_controller")
+local proxy_controller = msg.url("main", hash("/proxy"), "proxy_controller")
+
+
+-- Game play
+local active_player = 'X'
+local game_completed = false
+
+------------------------ FUNCTIONS -----------------------------
+local function start_game()
+	game_completed = false
+	msg.post(game_controller, "get_mode")
+	msg.post(".", "acquire_input_focus")
+end
+
+
+local function place_mark(i)
+	gui.set_enabled(grid[i]["tile_node"], true)
+	gui.set_enabled(grid[i]["text_node"], true)
+	grid[i]["tile_state"] = true
+	gui.set_text(grid[i]["text_node"], next_mark)
+	gui.animate(grid[i]["text_node"], "scale", 1, gui.PLAYBACK_LOOP_FORWARD, 0.5)
+end
+
+local function game_complete(message)
+	gui.set_enabled(result_box_node, true)
+	gui.set_enabled(winner_txt_node, true)
+	gui.set_enabled(replay_btn_node, true)
+	gui.set_enabled(grid_node, false)
+	gui.set_enabled(turn_txt_node, false)
+	gui.set_text(winner_txt_node, message)
+end
+
+
+local function restart_game()
+	msg.post(proxy_controller, "reload_game")
+end
+
+
+function init(self)
+	turn_txt_node = gui.get_node("turn_txt")
+	result_box_node = gui.get_node("result_box")
+	winner_txt_node = gui.get_node("winner_txt")
+	replay_btn_node = gui.get_node("replay_btn")
+	quit_btn_node = gui.get_node("quit_btn")
+	grid_node = gui.get_node("grid")
+	
+	gui.set_enabled(result_box_node, false)
+	gui.set_enabled(winner_txt_node, false)
+	gui.set_enabled(replay_btn_node, false)
+
+	local box_node
+	local text_node
+	local tile = {}
+
+	local i = 1
+	for x = 1, 9 do
+			box_node = gui.get_node("box"..i)
+			text_node = gui.get_node("text-"..i)
+			gui.set_enabled(box_node, false)
+			tile = { 
+				tile_node = box_node,
+				text_node = text_node,
+				tile_state = false,
+				i = i,
+			}
+			table.insert(grid, i, tile)
+			i=i+1
+	end	
+	start_game()
+end
+
+
+function on_input(self, action_id, action)
+	for i, v in ipairs(grid) do
+		local current_node  = gui.pick_node(v["tile_node"], action.x, action.y)
+		if action_id == touch and current_node and action.pressed and v["tile_state"] == false then
+			place_mark(v["i"])
+			msg.post(game_controller, "place_mark", {i = v["i"]})
+		end
+	end
+	if gui.pick_node(turn_txt_node, action.x, action.y) then
+		gui.set_color(turn_txt_node, vmath.vector4(1, 0.1, 0.1, 1))
+	else
+		gui.set_color(turn_txt_node, vmath.vector4(1, 1, 1, 1))
+	end
+	if gui.is_enabled(replay_btn_node) then
+		if gui.pick_node(replay_btn_node, action.x, action.y) then
+			gui.set_color(replay_btn_node, vmath.vector4(0.5, 0.9, 0.6, 1))
+		else
+			gui.set_color(replay_btn_node, vmath.vector4(1, 1, 1, 1))
+		end
+	end
+	
+	if action_id == touch and gui.is_enabled(replay_btn_node) and gui.pick_node(replay_btn_node, action.x, action.y) then
+		msg.post(game_controller, "replay")		
+	end
+	if action_id == touch and gui.is_enabled(quit_btn_node) and gui.pick_node(quit_btn_node, action.x, action.y) then
+		msg.post(game_controller, "quit_game")
+	end
+	
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("game_complete") then 
+		game_complete(message.message)
+	elseif  message_id == hash("next_mark") then 
+		next_mark = message.mark
+		gui.set_text(turn_txt_node, next_mark.."'s turn")
+	elseif message_id == hash("computer_place_mark") then
+		place_mark(message.idx)
+	end
+end
+
+
+

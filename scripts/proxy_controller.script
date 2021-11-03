@@ -1,0 +1,85 @@
+
+local reload = ''
+local quit_game = false
+local game_controller = msg.url("main", hash("/game"), "game_controller")
+-------------------------------------- MENU --------------------------------
+
+local function load_menu()
+	msg.post("/proxy#menu_proxy", "load")
+end
+
+local function unload_menu()
+	msg.post("/proxy#menu_proxy", "disable")
+	msg.post("/proxy#menu_proxy", "final")
+	msg.post("/proxy#menu_proxy", "unload")
+end
+
+------------------------------ SINGLE PLAYER -------------------------------
+
+local function load_single_player()
+	msg.post("/proxy#single_player_proxy", "load")
+	msg.post(game_controller, "set_single_player_mode")
+end
+
+local function unload_single_player()
+	msg.post("/proxy#single_player_proxy", "disable")
+	msg.post("/proxy#single_player_proxy", "final")
+	msg.post("/proxy#single_player_proxy", "unload")
+end
+
+
+------------------------------- MULTI PLAYER -------------------------------
+
+local function load_multi_player()
+	msg.post("/proxy#multi_player_proxy", "load")
+	msg.post(game_controller, "set_multi_player_mode")
+end
+
+local function unload_multi_player()
+	msg.post("/proxy#multi_player_proxy", "disable")
+	msg.post("/proxy#multi_player_proxy", "final")
+	msg.post("/proxy#multi_player_proxy", "unload")
+end
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+	load_menu()
+end
+
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("proxy_loaded") then
+		msg.post(sender, "init")
+		msg.post(sender, "enable")
+	end
+	if message_id == hash("proxy_unloaded") and reload == 'single' then
+		reload = ''
+		load_single_player()
+	elseif message_id == hash("proxy_unloaded") and reload == 'multi' then
+		reload = ''
+		load_multi_player()
+	elseif message_id == hash("proxy_unloaded") and quit_game == true then
+		quit_game = false
+		load_menu()
+	end
+
+	if message_id == hash("load_single_player") then
+		unload_menu()
+		load_single_player()
+	elseif message_id == hash("load_multi_player") then
+		unload_menu()
+		load_multi_player()
+	elseif message_id == hash("reload_single_player") then
+		unload_single_player()
+		reload = 'single'
+	elseif message_id == hash("reload_multi_player") then
+		unload_multi_player()
+		reload = 'multi'
+	end
+	if message_id == hash("quit_game") then
+		quit_game = true
+		if message.mode == 1 then unload_single_player() 
+		elseif message.mode == 2 then unload_multi_player()
+		end
+	end
+end
