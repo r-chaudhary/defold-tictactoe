@@ -1,6 +1,14 @@
 
+local back_box
+local back_txt
+local touch = hash("touch")
+local proxy_controller = msg.url("main", hash("/proxy"), "proxy_controller")
+
 
 function init(self)
+	back_box = gui.get_node("back_box")
+	back_txt = gui.get_node("back_txt")
+	msg.post(".", "acquire_input_focus")
 end
 
 function final(self)
@@ -22,15 +30,9 @@ function on_message(self, message_id, message, sender)
 end
 
 function on_input(self, action_id, action)
-	-- Add input-handling code here. The game object this script is attached to
-	-- must have acquired input focus:
-	--
-	--    msg.post(".", "acquire_input_focus")
-	--
-	-- All mapped input bindings will be received. Mouse and touch input will
-	-- be received regardless of where on the screen it happened.
-	-- Learn more: https://defold.com/manuals/input/
-	-- Remove this function if not needed
+	if action_id == touch  and gui.pick_node(back_box, action.x, action.y) then
+		msg.post(proxy_controller, "unload_settings")
+	end
 end
 
 function on_reload(self)
